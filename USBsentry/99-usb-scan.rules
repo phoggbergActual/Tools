@@ -1,0 +1,34 @@
+# =============================================================================
+# 99-usb-scan.rules
+# udev rule to trigger USB security scan on block device insertion
+# =============================================================================
+#
+# INSTALLATION:
+#   sudo cp 99-usb-scan.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+#
+# HOW IT WORKS:
+#   When a USB mass storage block device (partition) is added, this rule
+#   triggers the usb-scan.service systemd unit, passing the device path.
+#   The service runs usb_scan.sh which scans with ClamAV before mount.
+#
+# NOTE ON HID DEVICES:
+#   The second rule logs any USB HID device insertion to syslog.
+#   A Pi Zero presenting as a keyboard after boot is a BadUSB indicator.
+#   usb_scan.sh checks the HID device count and alerts if unexpected.
+#
+# =============================================================================
+
+# Rule 1: Trigger scan on USB mass storage block device insertion
+ACTION=="add", \
+SUBSYSTEM=="block", \
+ENV{ID_BUS}=="usb", \
+ENV{DEVTYPE}=="partition", \
+RUN+="/bin/systemctl --no-block start usb-scan@%k.service"
+
+# Rule 2: Log unexpected USB HID device insertions
+ACTION=="add", \
+SUBSYSTEM=="hid", \
+ENV{ID_BUS}=="usb", \
+RUN+="/bin/logger -t usb-hid-alert 'USB HID device inserted: %E{ID_VENDOR} %E{ID_MODEL} at %E{DEVPATH} — verify this is an expected device'"
